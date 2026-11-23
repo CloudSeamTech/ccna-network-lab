@@ -46,3 +46,9 @@ pre { white-space:pre-wrap; overflow-wrap:anywhere; margin:0; }
 .subnet-grid div { padding:.65rem; border:1px solid #716ad3; border-radius:.35rem; background:#221d50 }
 .subnet-grid .active { border-color:var(--signal); background:#15364d }
 @media(max-width:820px) { .workspace{grid-template-columns:1fr} .grid{min-height:15rem} nav button{font-size:.83rem} }
+.cable { stroke:var(--cable); fill:none; stroke-width:4; stroke-linecap:round }
+.plugging { stroke-dasharray:1; animation:plug-in 2.4s ease-out both }
+.usb-in { animation:usb-in 2.4s ease-out both }
+@keyframes plug-in { from { stroke-dashoffset:1 } to { stroke-dashoffset:0 } }
+@keyframes usb-in { from { transform:translateX(54px) } to { transform:translateX(0) } }
+@media(prefers-reduced-motion:reduce) { .plugging,.usb-in { animation:none } }

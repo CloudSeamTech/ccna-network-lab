@@ -119,7 +119,102 @@ function patchPicture(phase) {
     ${phase===0?idcDetail:''}`);
 }
 
-function physicalVisual(isPatch) {
+const serverFrames = [
+  ['Identify the ports', 'Find NIC 1, the dedicated BMC jack, and PSU 1 and PSU 2 on SRV1. Find Gi1/0/20 on the switch front.'],
+  ['Connect the data cable', 'Blue Cat6 Ethernet: SRV1 NIC 1 → SW1 Gi1/0/20. Label both ends and check that both plugs latch.'],
+  ['Connect management', 'Purple Cat6 Ethernet: SRV1 BMC → management switch Gi1/0/8. Confirm the management VLAN and authorized access path.'],
+  ['Connect power', 'Approved AC cord: PSU 1 → PDU A. Second approved AC cord: PSU 2 → PDU B, where independent feeds are provided.'],
+  ['Check the links', 'Inspect power and link indicators. Trace the cable labels again. Then use the switch console to confirm the data port’s status.']
+];
+
+const bootFrames = [
+  ['Power up the switch', 'Watch the vendor startup messages. Wait for the system status to settle and the switch console to load.'],
+  ['Insert approved server USB', 'Insert the prepared bootable USB into the server’s data USB port. Confirm this is the blank lab server.'],
+  ['Choose the one-time boot device', 'Use the server’s model-specific boot menu and choose UEFI: Approved OS USB. This only sets the current boot choice.'],
+  ['Install on the intended disk', 'Check the installer and the approved target volume. Confirm before writing. In an enterprise, the same OS may be delivered with virtual media or PXE.'],
+  ['Start from the installed disk', 'Eject installer media as directed. Boot the internal disk, verify the OS starts, and record hostname and NIC details.']
+];
+
+function serverPicture(phase) {
+  const finals = [
+    ['M120 145v126','#75dcff',1],
+    ['M248 145v70h37v56','#c295ff',2],
+    ['M443 145v121','#ffc883',3],
+    ['M556 145v121','#f6a98b',3]
+  ];
+  const wires = finals.filter((entry)=>phase>=entry[2]).map(([d,color,start])=>
+    `<path class="cable ${phase===start?'plugging':''}" pathLength="1" style="--cable:${color}" d="${d}"/>`).join('');
+  svg('Close-up of SRV1 rear and SW1 front. Separate Cat6 data and management connections and two AC power feeds.', `
+    <text x="40" y="35">SRV1 · rear panel</text>
+    <rect class="device" x="40" y="52" width="580" height="115" rx="8"/>
+    <rect class="port" x="92" y="99" width="56" height="46" rx="4"/>
+    <path class="wire" d="M103 135h34m-27-20v11m9-11v11m9-11v11"/>
+    <rect class="port" x="220" y="99" width="56" height="46" rx="4"/>
+    <path class="wire" d="M231 135h34m-27-20v11m9-11v11m9-11v11"/>
+    <circle class="port" cx="340" cy="119" r="23"/><path class="wire" d="M329 119h22m-11-11v22"/>
+    <rect class="port" x="416" y="99" width="54" height="46" rx="5"/>
+    <rect class="port" x="529" y="99" width="54" height="46" rx="5"/>
+    <text class="small" x="92" y="90">NIC 1</text><text class="small" x="220" y="90">BMC</text>
+    <text class="small" x="416" y="90">PSU 1</text><text class="small" x="529" y="90">PSU 2</text>
+    ${wires}
+    <rect class="device" x="29" y="266" width="180" height="71" rx="6"/>
+    <rect class="device" x="220" y="266" width="133" height="71" rx="6"/>
+    <rect class="device" x="396" y="266" width="94" height="71" rx="6"/>
+    <rect class="device" x="509" y="266" width="94" height="71" rx="6"/>
+    <rect class="port" x="108" y="271" width="24" height="12"/>
+    <rect class="port" x="273" y="271" width="24" height="12"/>
+    <text x="119" y="308" text-anchor="middle">SW1 · front</text>
+    <text class="small" x="119" y="326" text-anchor="middle">Gi1/0/20 · Cat6</text>
+    <text x="286" y="308" text-anchor="middle">Mgmt switch</text>
+    <text class="small" x="286" y="326" text-anchor="middle">Gi1/0/8 · Cat6</text>
+    <text x="443" y="308" text-anchor="middle">PDU A</text>
+    <text x="556" y="308" text-anchor="middle">PDU B</text>
+    <text class="small" x="443" y="326" text-anchor="middle">AC cord</text>
+    <text class="small" x="556" y="326" text-anchor="middle">AC cord</text>
+    ${phase===4?'<circle fill="#85f8bd" cx="141" cy="277" r="5"/><circle fill="#85f8bd" cx="308" cy="277" r="5"/>':''}
+    <text class="small" x="39" y="372">Physical port locations are illustrative. Check your model labels.</text>`, '0 0 660 395');
+}
+
+function bootPicture(phase) {
+  const messages = [
+    ['SW1 console','System boot complete','SW1>'],
+    ['SRV1 firmware','USB media detected','Open the one-time boot menu'],
+    ['SRV1 · UEFI boot menu','Selected: UEFI: Approved OS USB','Internal disk is unchanged'],
+    ['SRV1 installer','Select the approved target volume','Confirm before writing to disk'],
+    ['SRV1 installed OS','Internal disk selected · USB removed','Record NIC 1 and verify switch port']
+  ];
+  const [title,line,next]=messages[phase];
+  svg('Switch console and server USB installation, with labeled boot progress', `
+    <text x="45" y="36">SRV1 · front panel</text>
+    <rect class="device" x="45" y="52" width="537" height="68" rx="7"/>
+    <circle fill="#85f8bd" cx="78" cy="85" r="7"/><text class="small" x="96" y="90">Power</text>
+    <rect class="port" x="449" y="77" width="44" height="17" rx="3"/><text class="small" x="399" y="91">USB</text>
+    ${phase>=1&&phase<=3?`<g class="${phase===1?'usb-in':''}">
+      <rect x="484" y="79" width="34" height="12" fill="#9babc3"/>
+      <rect class="device" x="509" y="71" width="91" height="28" rx="5"/>
+      <text class="small" x="555" y="90" text-anchor="middle">OS USB</text></g>`:''}
+    <rect class="device" x="45" y="153" width="573" height="163" rx="8"/>
+    <text x="66" y="190">${title}</text>
+    <path class="wire" d="M65 207h534"/>
+    <text class="small" x="66" y="244">${line}</text>
+    <text class="small" x="66" y="277">${next}</text>`);
+}
+
+function portPicture() {
+  svg('Server NIC 1 over Cat6 to switch SW1 interface Gi1/0/20, labeled access VLAN 20', `
+    <rect class="device" x="45" y="89" width="196" height="91" rx="6"/>
+    <text x="65" y="120">SRV1 · rear</text><text class="small" x="65" y="148">NIC 1</text>
+    <rect class="port" x="201" y="123" width="37" height="25" rx="3"/>
+    <path class="wire signal" d="M241 135h165"/>
+    <text class="small" x="319" y="118" text-anchor="middle">Cat6</text>
+    <rect class="device" x="406" y="89" width="207" height="91" rx="6"/>
+    <rect class="port" x="409" y="123" width="37" height="25" rx="3"/>
+    <text x="465" y="119">SW1 · front</text><text class="small" x="465" y="148">Gi1/0/20</text>
+    <text class="small" x="405" y="221">Approved setting: Access VLAN 20</text>
+    <text class="small" x="45" y="250">Verify link → VLAN → MAC → gateway</text>`);
+}
+
+function physicalVisual(kind) {
   let rear = false;
   let phase = 0;
   const description = element('p');
@@ -132,7 +227,12 @@ function physicalVisual(isPatch) {
       if (phase === frames().length - 1) stop();
     }, 3600);
   });
-  function frames() { return isPatch ? patchFrames : rear ? rearFrames : frontFrames; }
+  function frames() {
+    if (kind === 'patch') return patchFrames;
+    if (kind === 'server') return serverFrames;
+    if (kind === 'boot') return bootFrames;
+    return rear ? rearFrames : frontFrames;
+  }
   function stop() { clearInterval(rackTimer); rackTimer = null; play.textContent = 'Play slowly'; }
   function advance() { phase = Math.min(phase+1,frames().length-1); draw(); }
   const back = action('Previous action', () => { stop(); phase=Math.max(0,phase-1); draw(); });
@@ -143,10 +243,12 @@ function physicalVisual(isPatch) {
     description.textContent = title + '. ' + text;
     back.disabled = phase === 0;
     next.disabled = phase === frames().length-1;
-    if (isPatch) patchPicture(phase);
+    if (kind === 'patch') patchPicture(phase);
+    else if (kind === 'server') serverPicture(phase);
+    else if (kind === 'boot') bootPicture(phase);
     else rackPicture(rear, phase);
   }
-  if (!isPatch) byId('visual-controls').append(action('Front view', () => { stop(); rear=false; phase=0; draw(); }),
+  if (kind === 'rack') byId('visual-controls').append(action('Front view', () => { stop(); rear=false; phase=0; draw(); }),
     action('Rear view', () => { stop(); rear=true; phase=0; draw(); }));
   byId('visual-controls').append(back, play, next, description);
   draw();
@@ -284,9 +386,10 @@ function show(index,focus=false) {
   byId('canvas').replaceChildren();
   byId('visual-controls').replaceChildren();
   byId('visual-status').textContent='';
-  const visualNames={rack:'Switch mounting',patch:'Cable path',subnet:'IPv4 address blocks'};
+  const visualNames={rack:'Switch mounting',patch:'Cable path',subnet:'IPv4 address blocks',server:'Server and switch ports',boot:'Power-on and OS installation',ports:'Data port and VLAN'};
   byId('visual-title').textContent=visualNames[lesson.visual]||'Lab topology';
-  if (lesson.visual==='rack'||lesson.visual==='patch') physicalVisual(lesson.visual==='patch');
+  if (['rack','patch','server','boot'].includes(lesson.visual)) physicalVisual(lesson.visual);
+  else if (lesson.visual==='ports') portPicture();
   else if (lesson.visual==='subnet') subnetVisual();
   else {
     networkDiagram();

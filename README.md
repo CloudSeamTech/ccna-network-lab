@@ -1,6 +1,6 @@
 # CCNA Network Engineering Lab
 
-Work through 16 browser lessons on networking fundamentals, subnetting, rack installation, cabling, Cisco IOS, and troubleshooting. Start with **Start**, then use **Next** to move through the course.
+Work through 19 browser lessons on networking fundamentals, subnetting, rack installation, cabling, Cisco IOS, and troubleshooting. Start with **Rack a switch**, then use **Next** to move through the course.
 
 ## Run the lab
 
