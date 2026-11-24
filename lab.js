@@ -313,7 +313,115 @@ function quiz(questions) {
   return form;
 }
 
-function terminal(lesson) {
+const managementAddress = '192.168.99.2';
+const managementUrl = 'https://' + managementAddress;
+
+function managementDiagram(kind = 'usb') {
+  const cables = {
+    usb: ['USB data cable', 'USB port', 'USB CONSOLE', '#75dcff'],
+    serial: ['USB-to-RJ45 serial console', 'USB port', 'RJ45 CONSOLE', '#c295ff'],
+    ethernet: ['Cat6 Ethernet patch cable', 'Ethernet adapter', 'Gi1/0/2 · VLAN 99', '#85f8bd']
+  };
+  const [name, left, right, color] = cables[kind];
+  svg('Management laptop to switch using ' + name, `
+    <text x="130" y="85" text-anchor="middle">Management laptop</text>
+    <text x="528" y="85" text-anchor="middle">SW1 · front</text>
+    <rect class="device" x="48" y="110" width="164" height="91" rx="6"/>
+    <rect class="device" x="446" y="110" width="164" height="91" rx="6"/>
+    <rect class="port" x="193" y="145" width="19" height="23" rx="3"/>
+    <rect class="port" x="446" y="145" width="19" height="23" rx="3"/>
+    <path class="cable plugging" pathLength="1" style="--cable:${color}" d="M212 156h234"/>
+    <text class="small" x="329" y="140" text-anchor="middle">${name}</text>
+    <text class="small" x="130" y="233" text-anchor="middle">${left}</text>
+    <text class="small" x="528" y="233" text-anchor="middle">${right}</text>`, '0 0 660 280');
+}
+
+function managementVisual() {
+  const note = element('p');
+  note.setAttribute('role','status');
+  const choices = [
+    ['usb','Native USB console','Use the switch’s USB port labeled CONSOLE. The terminal app opens the serial device. The switch does not need an IP address for this.'],
+    ['serial','RJ45 serial console','Use a compatible USB-to-RJ45 serial console cable. Match the switch’s console specifications. An ordinary Ethernet adapter cannot act as a serial console cable.'],
+    ['ethernet','Ethernet browser path','Connect the laptop to Gi1/0/2 using a regular Ethernet patch cable. Use a USB Ethernet adapter if needed. Both management addresses belong to VLAN 99.']
+  ];
+  for (const [kind,label,message] of choices) {
+    byId('visual-controls').append(action(label,()=>{
+      managementDiagram(kind);
+      note.textContent=message;
+    }));
+  }
+  byId('visual-controls').append(note);
+  note.textContent=choices[0][2];
+  managementDiagram();
+}
+
+function managementCheck() {
+  const panel=element('section','','management-check');
+  const title=element('h3','Test from the management laptop');
+  const network=element('form');
+  const addressLabel=element('label','Laptop IPv4 address with prefix');
+  const address=element('input');
+  address.id='laptop-management-ip';
+  address.required=true;
+  address.placeholder='192.168.99.10/24';
+  addressLabel.htmlFor=address.id;
+  const ping=element('button','Ping '+managementAddress,'run');
+  const status=element('p','','feedback');
+  status.setAttribute('role','status');
+  network.append(addressLabel,address,ping,status);
+  const browser=element('form');
+  browser.hidden=true;
+  const urlLabel=element('label','Simulated browser address bar');
+  const url=element('input');
+  url.id='switch-url';
+  url.required=true;
+  url.placeholder=managementUrl;
+  urlLabel.htmlFor=url.id;
+  const browserStatus=element('p','','feedback');
+  browserStatus.setAttribute('role','status');
+  browser.append(urlLabel,url,element('button','Open switch dashboard','run'),browserStatus);
+  const dashboard=element('dialog','','dashboard');
+  dashboard.setAttribute('aria-label','Simulated SW1 management dashboard');
+  const header=element('header');
+  header.append(element('strong','SW1 · Switch dashboard'),action('Close',()=>dashboard.close()));
+  const data=element('dl');
+  for (const [label,value] of [
+    ['Mode','Simulation'],['Management IP',managementAddress+'/24'],['Management VLAN','99'],
+    ['VLAN interface','Vlan99 · Up / Up'],['Laptop port','Gi1/0/2 · Connected'],['Web service','HTTPS enabled']
+  ]) data.append(element('dt',label),element('dd',value));
+  dashboard.append(header,data);
+  address.addEventListener('input',()=>{
+    browser.hidden=true;
+    status.textContent='';
+  });
+  network.addEventListener('submit',event=>{
+    event.preventDefault();
+    const match=/^192\.168\.99\.([1-9]\d{0,2})\/24$/.exec(address.value.trim());
+    const host=match?Number(match[1]):0;
+    const reachable=host>=1&&host<=254&&host!==1&&host!==2;
+    browser.hidden=!reachable;
+    browserStatus.textContent='';
+    status.textContent=reachable
+      ? 'Success. SW1 replied to the simulated ping. Now use HTTPS.'
+      : 'No reply in this exercise. Use an available host on 192.168.99.0/24, such as 192.168.99.10/24. The .1 and .2 addresses are reserved.';
+    if (reachable) url.focus();
+  });
+  browser.addEventListener('submit',event=>{
+    event.preventDefault();
+    if (browser.hidden) return;
+    const entered=url.value.trim().replace(/\/$/,'');
+    if (entered!==managementUrl) {
+      browserStatus.textContent='Use '+managementUrl+'. Plain HTTP is disabled in this lab.';
+      return;
+    }
+    browserStatus.textContent='Success. The simulated dashboard responded over HTTPS.';
+    dashboard.showModal();
+  });
+  panel.append(title,network,browser,dashboard);
+  return panel;
+}
+
+function terminal(lesson, onComplete) {
   const device=lesson.device||'SW1';
   let prompt=device+'>';
   let position=0;
@@ -358,6 +466,7 @@ function terminal(lesson) {
     output.scrollTop=output.scrollHeight;
     hint.textContent=lesson.cli[position]?.[0]||'Complete. Review the terminal output before moving on.';
     input.disabled=run.disabled=position===lesson.cli.length;
+    if (input.disabled && onComplete) onComplete();
   });
   return panel;
 }
@@ -386,9 +495,10 @@ function show(index,focus=false) {
   byId('canvas').replaceChildren();
   byId('visual-controls').replaceChildren();
   byId('visual-status').textContent='';
-  const visualNames={rack:'Switch mounting',patch:'Cable path',subnet:'IPv4 address blocks',server:'Server and switch ports',boot:'Power-on and OS installation',ports:'Data port and VLAN'};
+  const visualNames={rack:'Switch mounting',patch:'Cable path',subnet:'IPv4 address blocks',server:'Server and switch ports',boot:'Power-on and OS installation',ports:'Data port and VLAN',management:'Console and Ethernet connections'};
   byId('visual-title').textContent=visualNames[lesson.visual]||'Lab topology';
   if (['rack','patch','server','boot'].includes(lesson.visual)) physicalVisual(lesson.visual);
+  else if (lesson.visual==='management') managementVisual();
   else if (lesson.visual==='ports') portPicture();
   else if (lesson.visual==='subnet') subnetVisual();
   else {
@@ -407,7 +517,7 @@ function show(index,focus=false) {
   practice.replaceChildren();
   if (lesson.skill) practice.append(element('p',lesson.skill,'skill'));
   if (lesson.sample) practice.append(element('pre',lesson.sample,'terminal'));
-  if (lesson.cli) practice.append(terminal(lesson));
+  if (lesson.cli) practice.append(terminal(lesson, lesson.visual==='management' ? () => practice.append(managementCheck()) : null));
   if (lesson.quiz) practice.append(quiz(lesson.quiz));
   if (focus) byId('lesson-title').focus();
 }
